@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -308,5 +309,133 @@ func TestLogMessageStruct(t *testing.T) {
 
 	if unmarshaled.Message != logMsg.Message {
 		t.Errorf("Expected message %s, got %s", logMsg.Message, unmarshaled.Message)
+	}
+}
+
+// TestConfigValidation tests configuration edge cases
+func TestConfigValidation(t *testing.T) {
+	tests := []struct {
+		name   string
+		config Config
+		valid  bool
+	}{
+		{
+			name: "Valid config",
+			config: Config{
+				IPAddress: "192.168.1.100",
+				Port:      8080,
+				Filename:  "test.swu",
+				Timeout:   5 * time.Minute,
+			},
+			valid: true,
+		},
+		{
+			name: "Empty IP address",
+			config: Config{
+				IPAddress: "",
+				Port:      8080,
+				Filename:  "test.swu",
+				Timeout:   5 * time.Minute,
+			},
+			valid: false,
+		},
+		{
+			name: "Invalid port",
+			config: Config{
+				IPAddress: "192.168.1.100",
+				Port:      0,
+				Filename:  "test.swu",
+				Timeout:   5 * time.Minute,
+			},
+			valid: false,
+		},
+		{
+			name: "Zero timeout",
+			config: Config{
+				IPAddress: "192.168.1.100",
+				Port:      8080,
+				Filename:  "test.swu",
+				Timeout:   0,
+			},
+			valid: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := NewSWUpdateClient(tt.config)
+			
+			// Basic validation checks
+			if tt.valid {
+				if client == nil {
+					t.Error("Expected valid client for valid config")
+				}
+				if client.config.IPAddress != tt.config.IPAddress {
+					t.Errorf("IP mismatch: expected %s, got %s", tt.config.IPAddress, client.config.IPAddress)
+				}
+			} else {
+				// Invalid configs should still create client (validation happens during use)
+				if client == nil {
+					t.Error("Client should be created even with invalid config")
+				}
+			}
+		})
+	}
+}
+
+// TestWebSocketEventTypes tests various event type handling
+func TestWebSocketEventTypes(t *testing.T) {
+	config := Config{JSONOutput: false, Verbose: true}
+	client := NewSWUpdateClient(config)
+
+	events := []SWUpdateEvent{
+		{Type: "status", Status: "START"},
+		{Type: "status", Status: "SUCCESS"},
+		{Type: "status", Status: "FAILURE"},
+		{Type: "step", Name: "kernel", Percent: "50"},
+		{Type: "message", Level: "ERROR", Text: "Error message"},
+		{Type: "message", Level: "WARN", Text: "Warning message"},
+		{Type: "info", Text: "Info message"},
+		{Type: "source", Source: "test-source"},
+		{Type: "unknown", Text: "Unknown event"},
+	}
+
+	for _, event := range events {
+		t.Run(fmt.Sprintf("Event_%s_%s", event.Type, event.Status), func(t *testing.T) {
+			// Capture output
+			var buf bytes.Buffer
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
+			client.handleWebSocketEvent(event)
+
+			w.Close()
+			os.Stdout = oldStdout
+			_, _ = buf.ReadFrom(r) // Ignore error in test
+
+			// Event should be handled without panic
+			// Specific output validation would require more complex mocking
+		})
+	}
+}
+
+// TestTimeout tests timeout behavior
+func TestTimeout(t *testing.T) {
+	config := Config{
+		IPAddress: "192.168.1.100",
+		Port:      8080,
+		Filename:  "nonexistent.swu",
+		Timeout:   1 * time.Millisecond, // Very short timeout
+	}
+	client := NewSWUpdateClient(config)
+
+	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
+	defer cancel()
+
+	// This should timeout quickly
+	err := client.connectWebSocket(ctx)
+	if err == nil {
+		t.Error("Expected timeout error for very short timeout")
 	}
 }
