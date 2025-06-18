@@ -75,7 +75,7 @@ func TestLogMessage(t *testing.T) {
 
 			w.Close()
 			os.Stdout = oldStdout
-			buf.ReadFrom(r)
+			_, _ = buf.ReadFrom(r) // Ignore error in test - we're capturing stdout
 
 			output := buf.String()
 
@@ -119,7 +119,7 @@ func TestHandleWebSocketEvent(t *testing.T) {
 
 	w.Close()
 	os.Stdout = oldStdout
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r) // Ignore error in test - we're capturing stdout
 
 	output := buf.String()
 	var parsedEvent SWUpdateEvent

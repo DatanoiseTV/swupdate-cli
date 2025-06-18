@@ -1,3 +1,4 @@
+// SWUpdate CLI Client provides firmware upload capabilities for SWUpdate-enabled devices
 package main
 
 import (
@@ -18,45 +19,51 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// Config holds all configuration parameters for the SWUpdate client
 type Config struct {
-	IPAddress string
-	Port      int
-	Filename  string
-	Timeout   time.Duration
-	Verbose   bool
-	JSONOutput bool
+	IPAddress  string        // Target device IP address
+	Port       int           // SWUpdate web server port
+	Filename   string        // Path to firmware file (.swu)
+	Timeout    time.Duration // Network operation timeout
+	Verbose    bool          // Enable detailed logging
+	JSONOutput bool          // Output structured JSON instead of human-readable text
 }
 
+// SWUpdateEvent represents a WebSocket event from the SWUpdate server
 type SWUpdateEvent struct {
-	Type    string `json:"type"`
-	Level   string `json:"level,omitempty"`
-	Text    string `json:"text,omitempty"`
-	Number  string `json:"number,omitempty"`
-	Step    string `json:"step,omitempty"`
-	Name    string `json:"name,omitempty"`
-	Percent string `json:"percent,omitempty"`
-	Status  string `json:"status,omitempty"`
-	Source  string `json:"source,omitempty"`
+	Type    string `json:"type"`               // Event type (status, step, message, etc.)
+	Level   string `json:"level,omitempty"`   // Log level (INFO, WARN, ERROR)
+	Text    string `json:"text,omitempty"`    // Human-readable message
+	Number  string `json:"number,omitempty"`  // Step number
+	Step    string `json:"step,omitempty"`    // Current step
+	Name    string `json:"name,omitempty"`    // Package or component name
+	Percent string `json:"percent,omitempty"` // Progress percentage
+	Status  string `json:"status,omitempty"`  // Update status (START, RUN, SUCCESS, etc.)
+	Source  string `json:"source,omitempty"`  // Update source information
 }
 
+// LogMessage represents a structured log entry for JSON output mode
 type LogMessage struct {
-	Type    string    `json:"type"`
-	Level   string    `json:"level,omitempty"`
-	Message string    `json:"message"`
-	Time    time.Time `json:"time"`
+	Type    string    `json:"type"`               // Message category
+	Level   string    `json:"level,omitempty"`   // Log level
+	Message string    `json:"message"`           // Log message content
+	Time    time.Time `json:"time"`              // Timestamp
 }
 
+// SWUpdateClient manages communication with an SWUpdate-enabled device
 type SWUpdateClient struct {
-	config Config
-	wsConn *websocket.Conn
+	config Config            // Client configuration
+	wsConn *websocket.Conn  // WebSocket connection for progress monitoring
 }
 
+// NewSWUpdateClient creates a new client instance with the given configuration
 func NewSWUpdateClient(config Config) *SWUpdateClient {
 	return &SWUpdateClient{
 		config: config,
 	}
 }
 
+// connectWebSocket establishes a WebSocket connection for real-time progress monitoring
 func (c *SWUpdateClient) connectWebSocket(ctx context.Context) error {
 	wsURL := url.URL{
 		Scheme: "ws",
@@ -193,6 +200,7 @@ func (c *SWUpdateClient) handleWebSocketEvent(event SWUpdateEvent) {
 	}
 }
 
+// uploadFirmware uploads the firmware file to the SWUpdate device via HTTP multipart form
 func (c *SWUpdateClient) uploadFirmware(ctx context.Context) error {
 	file, err := os.Open(c.config.Filename)
 	if err != nil {
@@ -287,6 +295,7 @@ func (c *SWUpdateClient) restartDevice(ctx context.Context) error {
 	return nil
 }
 
+// Update performs the complete firmware update process including WebSocket monitoring and optional restart
 func (c *SWUpdateClient) Update(ctx context.Context, restart bool) error {
 	wsCtx, wsCancel := context.WithCancel(ctx)
 	defer wsCancel()

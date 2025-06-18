@@ -16,14 +16,14 @@ A command-line client for uploading firmware to devices running [SWUpdate](https
 ### From Source
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/DatanoiseTV/swupdate-cli.git
 cd swupdate-cli
 go build -o swupdate-client swupdate-client.go
 ```
 
 ### Binary Release
 
-Download the latest binary from the [releases page](../../releases).
+Download the latest binary from the [releases page](https://github.com/DatanoiseTV/swupdate-cli/releases).
 
 ## Usage
 
