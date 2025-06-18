@@ -4,6 +4,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -21,12 +23,17 @@ import (
 
 // Config holds all configuration parameters for the SWUpdate client
 type Config struct {
-	IPAddress  string        // Target device IP address
-	Port       int           // SWUpdate web server port
-	Filename   string        // Path to firmware file (.swu)
-	Timeout    time.Duration // Network operation timeout
-	Verbose    bool          // Enable detailed logging
-	JSONOutput bool          // Output structured JSON instead of human-readable text
+	IPAddress       string        // Target device IP address
+	Port            int           // SWUpdate web server port
+	Filename        string        // Path to firmware file (.swu)
+	Timeout         time.Duration // Network operation timeout
+	Verbose         bool          // Enable detailed logging
+	JSONOutput      bool          // Output structured JSON instead of human-readable text
+	TLS             bool          // Use HTTPS/WSS instead of HTTP/WS
+	InsecureTLS     bool          // Skip TLS certificate verification
+	CertFile        string        // Path to custom CA certificate file
+	ClientCertFile  string        // Path to client certificate file
+	ClientKeyFile   string        // Path to client private key file
 }
 
 // SWUpdateEvent represents a WebSocket event from the SWUpdate server
@@ -63,10 +70,47 @@ func NewSWUpdateClient(config Config) *SWUpdateClient {
 	}
 }
 
+// createTLSConfig creates a TLS configuration based on the client settings
+func (c *SWUpdateClient) createTLSConfig() (*tls.Config, error) {
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: c.config.InsecureTLS,
+	}
+
+	// Load custom CA certificate if provided
+	if c.config.CertFile != "" {
+		caCert, err := os.ReadFile(c.config.CertFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read CA certificate file: %w", err)
+		}
+
+		caCertPool := x509.NewCertPool()
+		if !caCertPool.AppendCertsFromPEM(caCert) {
+			return nil, fmt.Errorf("failed to parse CA certificate")
+		}
+		tlsConfig.RootCAs = caCertPool
+	}
+
+	// Load client certificate and key if provided
+	if c.config.ClientCertFile != "" && c.config.ClientKeyFile != "" {
+		clientCert, err := tls.LoadX509KeyPair(c.config.ClientCertFile, c.config.ClientKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load client certificate: %w", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{clientCert}
+	}
+
+	return tlsConfig, nil
+}
+
 // connectWebSocket establishes a WebSocket connection for real-time progress monitoring
 func (c *SWUpdateClient) connectWebSocket(ctx context.Context) error {
+	scheme := "ws"
+	if c.config.TLS {
+		scheme = "wss"
+	}
+
 	wsURL := url.URL{
-		Scheme: "ws",
+		Scheme: scheme,
 		Host:   fmt.Sprintf("%s:%d", c.config.IPAddress, c.config.Port),
 		Path:   "/ws",
 	}
@@ -78,6 +122,15 @@ func (c *SWUpdateClient) connectWebSocket(ctx context.Context) error {
 	dialer := websocket.DefaultDialer
 	dialer.HandshakeTimeout = c.config.Timeout
 
+	// Configure TLS if enabled
+	if c.config.TLS {
+		tlsConfig, err := c.createTLSConfig()
+		if err != nil {
+			return fmt.Errorf("failed to create TLS configuration: %w", err)
+		}
+		dialer.TLSClientConfig = tlsConfig
+	}
+
 	conn, _, err := dialer.DialContext(ctx, wsURL.String(), nil)
 	if err != nil {
 		return fmt.Errorf("failed to connect to WebSocket: %w", err)
@@ -88,11 +141,12 @@ func (c *SWUpdateClient) connectWebSocket(ctx context.Context) error {
 }
 
 func (c *SWUpdateClient) listenWebSocket(ctx context.Context) {
-	if c.wsConn == nil {
+	wsConn := c.wsConn
+	if wsConn == nil {
 		return
 	}
 
-	defer c.wsConn.Close()
+	defer wsConn.Close()
 
 	for {
 		select {
@@ -100,7 +154,7 @@ func (c *SWUpdateClient) listenWebSocket(ctx context.Context) {
 			return
 		default:
 			var event SWUpdateEvent
-			err := c.wsConn.ReadJSON(&event)
+			err := wsConn.ReadJSON(&event)
 			if err != nil {
 				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 					log.Printf("WebSocket error: %v", err)
@@ -232,7 +286,11 @@ func (c *SWUpdateClient) uploadFirmware(ctx context.Context) error {
 
 	multipartWriter.Close()
 
-	uploadURL := fmt.Sprintf("http://%s:%d/upload", c.config.IPAddress, c.config.Port)
+	scheme := "http"
+	if c.config.TLS {
+		scheme = "https"
+	}
+	uploadURL := fmt.Sprintf("%s://%s:%d/upload", scheme, c.config.IPAddress, c.config.Port)
 	
 	req, err := http.NewRequestWithContext(ctx, "POST", uploadURL, &requestBody)
 	if err != nil {
@@ -241,8 +299,19 @@ func (c *SWUpdateClient) uploadFirmware(ctx context.Context) error {
 
 	req.Header.Set("Content-Type", multipartWriter.FormDataContentType())
 
+	// Create HTTP client with TLS configuration
 	client := &http.Client{
 		Timeout: c.config.Timeout,
+	}
+
+	if c.config.TLS {
+		tlsConfig, err := c.createTLSConfig()
+		if err != nil {
+			return fmt.Errorf("failed to create TLS configuration: %w", err)
+		}
+		client.Transport = &http.Transport{
+			TLSClientConfig: tlsConfig,
+		}
 	}
 
 	if c.config.Verbose {
@@ -265,15 +334,30 @@ func (c *SWUpdateClient) uploadFirmware(ctx context.Context) error {
 }
 
 func (c *SWUpdateClient) restartDevice(ctx context.Context) error {
-	restartURL := fmt.Sprintf("http://%s:%d/restart", c.config.IPAddress, c.config.Port)
+	scheme := "http"
+	if c.config.TLS {
+		scheme = "https"
+	}
+	restartURL := fmt.Sprintf("%s://%s:%d/restart", scheme, c.config.IPAddress, c.config.Port)
 	
 	req, err := http.NewRequestWithContext(ctx, "POST", restartURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create restart request: %w", err)
 	}
 
+	// Create HTTP client with TLS configuration
 	client := &http.Client{
 		Timeout: c.config.Timeout,
+	}
+
+	if c.config.TLS {
+		tlsConfig, err := c.createTLSConfig()
+		if err != nil {
+			return fmt.Errorf("failed to create TLS configuration: %w", err)
+		}
+		client.Transport = &http.Transport{
+			TLSClientConfig: tlsConfig,
+		}
 	}
 
 	if c.config.Verbose {
@@ -332,6 +416,11 @@ func main() {
 	flag.DurationVar(&config.Timeout, "timeout", 5*time.Minute, "Timeout for operations")
 	flag.BoolVar(&config.Verbose, "verbose", false, "Enable verbose output")
 	flag.BoolVar(&config.JSONOutput, "json", false, "Output progress and messages in JSON format")
+	flag.BoolVar(&config.TLS, "tls", false, "Use HTTPS/WSS instead of HTTP/WS")
+	flag.BoolVar(&config.InsecureTLS, "insecure", false, "Skip TLS certificate verification")
+	flag.StringVar(&config.CertFile, "ca-cert", "", "Path to custom CA certificate file")
+	flag.StringVar(&config.ClientCertFile, "client-cert", "", "Path to client certificate file")
+	flag.StringVar(&config.ClientKeyFile, "client-key", "", "Path to client private key file")
 	flag.BoolVar(&restart, "restart", false, "Restart device after successful update")
 
 	flag.Usage = func() {
@@ -342,6 +431,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
 		fmt.Fprintf(os.Stderr, "  %s -ip 192.168.1.100 -file firmware.swu -restart\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "  %s -ip 192.168.1.100 -file firmware.swu -json > update.log\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s -ip 192.168.1.100 -file firmware.swu -tls -ca-cert ca.crt\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s -ip 192.168.1.100 -file firmware.swu -tls -insecure\n", os.Args[0])
 	}
 
 	flag.Parse()

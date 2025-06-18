@@ -1,5 +1,10 @@
 # SWUpdate CLI Client
 
+[![CI](https://github.com/DatanoiseTV/swupdate-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/DatanoiseTV/swupdate-cli/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/DatanoiseTV/swupdate-cli/branch/main/graph/badge.svg)](https://codecov.io/gh/DatanoiseTV/swupdate-cli)
+[![Go Report Card](https://goreportcard.com/badge/github.com/DatanoiseTV/swupdate-cli)](https://goreportcard.com/report/github.com/DatanoiseTV/swupdate-cli)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A command-line client for uploading firmware to devices running [SWUpdate](https://sbabic.github.io/swupdate/). This tool provides a simple interface for firmware updates with real-time progress monitoring via WebSocket connections.
 
 ## Features
@@ -8,6 +13,8 @@ A command-line client for uploading firmware to devices running [SWUpdate](https
 - **Real-time Progress**: Monitor update progress through WebSocket connections
 - **JSON Output**: Machine-parseable output for automation and logging
 - **Device Restart**: Optional device restart after successful updates
+- **TLS/SSL Support**: Secure connections with certificate verification
+- **Certificate Management**: Custom CA certificates and client certificate authentication
 - **Error Handling**: Comprehensive error reporting and timeout management
 - **Verbose Logging**: Detailed output for debugging and monitoring
 
@@ -55,6 +62,11 @@ Download the latest binary from the [releases page](https://github.com/Datanoise
 | `-timeout` | `5m0s` | Timeout for operations |
 | `-verbose` | `false` | Enable verbose output |
 | `-json` | `false` | Output progress and messages in JSON format |
+| `-tls` | `false` | Use HTTPS/WSS instead of HTTP/WS |
+| `-insecure` | `false` | Skip TLS certificate verification |
+| `-ca-cert` | | Path to custom CA certificate file |
+| `-client-cert` | | Path to client certificate file |
+| `-client-key` | | Path to client private key file |
 | `-restart` | `false` | Restart device after successful update |
 
 ## JSON Output Format
@@ -157,6 +169,16 @@ The client handles various error conditions:
 ### Automated Update with Logging
 ```bash
 ./swupdate-client -ip 10.0.0.100 -file my-firmware.swu -json | tee update-$(date +%Y%m%d).log
+```
+
+### Secure Update with TLS
+```bash
+./swupdate-client -ip 10.0.0.100 -file my-firmware.swu -tls -ca-cert ca.crt
+```
+
+### Update with Client Certificate Authentication
+```bash
+./swupdate-client -ip 10.0.0.100 -file my-firmware.swu -tls -client-cert client.crt -client-key client.key
 ```
 
 ### Update with Custom Timeout

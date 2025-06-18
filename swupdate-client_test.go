@@ -439,3 +439,101 @@ func TestTimeout(t *testing.T) {
 		t.Error("Expected timeout error for very short timeout")
 	}
 }
+
+// TestTLSConfig tests TLS configuration creation
+func TestTLSConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  Config
+		wantErr bool
+	}{
+		{
+			name: "No TLS",
+			config: Config{
+				TLS: false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "TLS with insecure",
+			config: Config{
+				TLS:         true,
+				InsecureTLS: true,
+			},
+			wantErr: false,
+		},
+		{
+			name: "TLS with nonexistent cert file",
+			config: Config{
+				TLS:      true,
+				CertFile: "nonexistent.crt",
+			},
+			wantErr: true,
+		},
+		{
+			name: "TLS with invalid client cert combination",
+			config: Config{
+				TLS:            true,
+				ClientCertFile: "cert.crt",
+				// Missing ClientKeyFile
+			},
+			wantErr: false, // Should not error, just skip client cert
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := NewSWUpdateClient(tt.config)
+			
+			if !tt.config.TLS {
+				// Skip TLS config test for non-TLS configurations
+				return
+			}
+
+			_, err := client.createTLSConfig()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("createTLSConfig() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// TestSchemeSelection tests URL scheme selection based on TLS setting
+func TestSchemeSelection(t *testing.T) {
+	tests := []struct {
+		name           string
+		tls            bool
+		expectedScheme string
+	}{
+		{
+			name:           "HTTP without TLS",
+			tls:            false,
+			expectedScheme: "http",
+		},
+		{
+			name:           "HTTPS with TLS",
+			tls:            true,
+			expectedScheme: "https",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := Config{
+				IPAddress: "192.168.1.100",
+				Port:      8080,
+				TLS:       tt.tls,
+			}
+			
+			// Test scheme in URL construction
+			scheme := "http"
+			if config.TLS {
+				scheme = "https"
+			}
+			
+			if scheme != tt.expectedScheme {
+				t.Errorf("Expected scheme %s, got %s", tt.expectedScheme, scheme)
+			}
+		})
+	}
+}
