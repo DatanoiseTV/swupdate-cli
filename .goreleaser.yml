@@ -23,9 +23,12 @@ builds:
       - goos: windows
         goarch: arm
     ldflags:
-      - -s -w -X main.version={{.Version}}
+      - -s -w -extldflags '-static' -X main.version={{.Version}}
     main: ./swupdate-client.go
     binary: swupdate-client
+    flags:
+      - -trimpath
+      - -mod=readonly
 
 archives:
   - format: tar.gz

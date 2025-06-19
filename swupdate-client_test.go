@@ -366,17 +366,14 @@ func TestConfigValidation(t *testing.T) {
 			client := NewSWUpdateClient(tt.config)
 			
 			// Basic validation checks
+			if client == nil {
+				t.Error("NewSWUpdateClient should never return nil")
+				return
+			}
+			
 			if tt.valid {
-				if client == nil {
-					t.Error("Expected valid client for valid config")
-				}
 				if client.config.IPAddress != tt.config.IPAddress {
 					t.Errorf("IP mismatch: expected %s, got %s", tt.config.IPAddress, client.config.IPAddress)
-				}
-			} else {
-				// Invalid configs should still create client (validation happens during use)
-				if client == nil {
-					t.Error("Client should be created even with invalid config")
 				}
 			}
 		})

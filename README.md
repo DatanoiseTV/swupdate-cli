@@ -37,6 +37,7 @@ Download the latest binary from the [releases page](https://github.com/Datanoise
 ### Basic Usage
 
 ```bash
+# Default: HTTP without TLS (typical for local/embedded devices)
 ./swupdate-client -ip 192.168.1.100 -file firmware.swu
 ```
 
@@ -62,8 +63,8 @@ Download the latest binary from the [releases page](https://github.com/Datanoise
 | `-timeout` | `5m0s` | Timeout for operations |
 | `-verbose` | `false` | Enable verbose output |
 | `-json` | `false` | Output progress and messages in JSON format |
-| `-tls` | `false` | Use HTTPS/WSS instead of HTTP/WS |
-| `-insecure` | `false` | Skip TLS certificate verification |
+| `-tls` | `false` | Use HTTPS/WSS instead of HTTP/WS (default is HTTP) |
+| `-insecure` | `false` | Skip TLS certificate verification (only with -tls) |
 | `-ca-cert` | | Path to custom CA certificate file |
 | `-client-cert` | | Path to client certificate file |
 | `-client-key` | | Path to client private key file |
@@ -126,16 +127,23 @@ go test -v
 
 ## SWUpdate Server Setup
 
-This client is designed to work with SWUpdate's built-in web server. Ensure your SWUpdate configuration includes:
+This client is designed to work with SWUpdate's built-in web server. By default, it uses HTTP for embedded devices. Ensure your SWUpdate configuration includes:
 
 ```
+# Basic HTTP setup (default)
 webserver = {
     listen = ":8080";
     document_root = "/www";
 };
 
-suricatta = {
-    enable = true;
+# Optional: HTTPS setup (use with -tls flag)
+webserver = {
+    listen = ":8443";
+    document_root = "/www";
+    ssl = {
+        cert = "/etc/ssl/certs/server.crt";
+        key = "/etc/ssl/private/server.key";
+    };
 };
 ```
 

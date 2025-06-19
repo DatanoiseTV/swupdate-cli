@@ -61,7 +61,9 @@ jobs:
         go-version: 'stable'
     
     - name: Build
-      run: go build -v -o swupdate-client swupdate-client.go
+      env:
+        CGO_ENABLED: 0
+      run: go build -v -ldflags="-s -w -extldflags '-static'" -o swupdate-client swupdate-client.go
     
     - name: Test binary
       run: ./swupdate-client -h
@@ -89,12 +91,13 @@ jobs:
       env:
         GOOS: ${{ matrix.goos }}
         GOARCH: ${{ matrix.goarch }}
+        CGO_ENABLED: 0
       run: |
         BINARY_NAME=swupdate-client
         if [ "$GOOS" = "windows" ]; then
           BINARY_NAME=${BINARY_NAME}.exe
         fi
-        go build -ldflags="-s -w" -o ${BINARY_NAME} swupdate-client.go
+        go build -ldflags="-s -w -extldflags '-static'" -o ${BINARY_NAME} swupdate-client.go
         
         # Create archive
         ARCHIVE_NAME=swupdate-client_${GOOS}_${GOARCH}
