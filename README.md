@@ -223,7 +223,7 @@ The client handles various error conditions:
 This project is licensed under the BSD 3-Clause License with attribution requirement - see the [LICENSE](LICENSE) file for details.
 
 **Important**: Any product that uses this software must include the following acknowledgment visibly in its documentation and any releases:
-"This product includes software developed by DatanoiseTV."
+"This product includes software developed by DatanoiseTV / Datanoise UG (haftungsbeschränkt)."
 
 ## Contributing
 
