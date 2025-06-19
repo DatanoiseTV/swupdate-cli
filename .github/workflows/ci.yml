@@ -77,7 +77,12 @@ jobs:
     - name: Build
       env:
         CGO_ENABLED: 0
-      run: go build -v -ldflags="-s -w -extldflags '-static'" -o swupdate-client swupdate-client.go
+      run: |
+        VERSION=$(git describe --tags --always --dirty)
+        COMMIT=$(git rev-parse --short HEAD)
+        BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        go build -v -ldflags="-s -w -extldflags '-static' -X main.version=$VERSION -X main.commit=$COMMIT -X main.branch=$BRANCH -X main.buildDate=$BUILD_DATE" -o swupdate-client swupdate-client.go
     
     - name: Test binary
       run: ./swupdate-client -h
@@ -111,7 +116,11 @@ jobs:
         if [ "$GOOS" = "windows" ]; then
           BINARY_NAME=${BINARY_NAME}.exe
         fi
-        go build -ldflags="-s -w -extldflags '-static'" -o ${BINARY_NAME} swupdate-client.go
+        VERSION=$(git describe --tags --always --dirty)
+        COMMIT=$(git rev-parse --short HEAD)
+        BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        go build -ldflags="-s -w -extldflags '-static' -X main.version=$VERSION -X main.commit=$COMMIT -X main.branch=$BRANCH -X main.buildDate=$BUILD_DATE" -o ${BINARY_NAME} swupdate-client.go
         
         # Rename binary with platform suffix
         FINAL_NAME=swupdate-client-${GOOS}-${GOARCH}

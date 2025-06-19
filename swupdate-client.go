@@ -21,6 +21,14 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// Build-time variables (set via ldflags)
+var (
+	version   = "dev"
+	commit    = "unknown"
+	branch    = "unknown"
+	buildDate = "unknown"
+)
+
 // Config holds all configuration parameters for the SWUpdate client
 type Config struct {
 	IPAddress      string        // Target device IP address
@@ -437,6 +445,7 @@ func (c *SWUpdateClient) Update(ctx context.Context, restart bool) error {
 func main() {
 	var config Config
 	var restart bool
+	var showVersion bool
 
 	flag.StringVar(&config.IPAddress, "ip", "192.168.1.100", "IP address of the swupdate device")
 	flag.IntVar(&config.Port, "port", 8080, "Port of the swupdate web server")
@@ -450,9 +459,11 @@ func main() {
 	flag.StringVar(&config.ClientCertFile, "client-cert", "", "Path to client certificate file")
 	flag.StringVar(&config.ClientKeyFile, "client-key", "", "Path to client private key file")
 	flag.BoolVar(&restart, "restart", false, "Restart device after successful update")
+	flag.BoolVar(&showVersion, "version", false, "Show version information")
 
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "SWUpdate Client - Upload firmware to swupdate-capable devices\n\n")
+		fmt.Fprintf(os.Stderr, "SWUpdate Client - Upload firmware to swupdate-capable devices\n")
+		fmt.Fprintf(os.Stderr, "Version: %s (branch: %s, commit: %s, built: %s)\n\n", version, branch, commit, buildDate)
 		fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
@@ -464,6 +475,14 @@ func main() {
 	}
 
 	flag.Parse()
+
+	if showVersion {
+		fmt.Printf("swupdate-client version %s\n", version)
+		fmt.Printf("  Branch: %s\n", branch)
+		fmt.Printf("  Commit: %s\n", commit)
+		fmt.Printf("  Built:  %s\n", buildDate)
+		os.Exit(0)
+	}
 
 	if config.Filename == "" {
 		fmt.Fprintf(os.Stderr, "Error: firmware file (-file) is required\n\n")

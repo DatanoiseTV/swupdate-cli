@@ -37,23 +37,118 @@ Each release includes:
 - Checksum files (SHA256, SHA512, MD5) for verification
 - Test coverage report (HTML and text format)
 
-Example:
+#### Linux (x86_64/amd64)
 ```bash
-# Linux x86_64
+# Download binary and checksums
 wget https://github.com/DatanoiseTV/swupdate-cli/releases/latest/download/swupdate-client-linux-x86_64
 wget https://github.com/DatanoiseTV/swupdate-cli/releases/latest/download/checksums.sha256
 
 # Verify checksum
 sha256sum -c checksums.sha256 --ignore-missing
 
-# Install
-chmod +x swupdate-client-linux-x86_64
-mv swupdate-client-linux-x86_64 /usr/local/bin/swupdate-client
+# Install system-wide
+sudo install -m 755 swupdate-client-linux-x86_64 /usr/local/bin/swupdate-client
 
-# macOS arm64 (Apple Silicon)
-wget https://github.com/DatanoiseTV/swupdate-cli/releases/latest/download/swupdate-client-darwin-arm64
+# Or install for current user
+mkdir -p ~/.local/bin
+cp swupdate-client-linux-x86_64 ~/.local/bin/swupdate-client
+chmod +x ~/.local/bin/swupdate-client
+```
+
+#### Linux (ARM64)
+```bash
+wget https://github.com/DatanoiseTV/swupdate-cli/releases/latest/download/swupdate-client-linux-arm64
+sudo install -m 755 swupdate-client-linux-arm64 /usr/local/bin/swupdate-client
+```
+
+#### Linux (ARM 32-bit)
+```bash
+# ARMv7
+wget https://github.com/DatanoiseTV/swupdate-cli/releases/latest/download/swupdate-client-linux-armv7
+
+# ARMv6 (Raspberry Pi Zero/1)
+wget https://github.com/DatanoiseTV/swupdate-cli/releases/latest/download/swupdate-client-linux-armv6
+
+sudo install -m 755 swupdate-client-linux-armv* /usr/local/bin/swupdate-client
+```
+
+#### macOS (Intel)
+```bash
+# Download
+curl -LO https://github.com/DatanoiseTV/swupdate-cli/releases/latest/download/swupdate-client-darwin-x86_64
+
+# Make executable
+chmod +x swupdate-client-darwin-x86_64
+
+# Install
+sudo mv swupdate-client-darwin-x86_64 /usr/local/bin/swupdate-client
+
+# Or using Homebrew custom tap (if available)
+# brew install datanoisetv/tap/swupdate-client
+```
+
+#### macOS (Apple Silicon M1/M2/M3)
+```bash
+# Download
+curl -LO https://github.com/DatanoiseTV/swupdate-cli/releases/latest/download/swupdate-client-darwin-arm64
+
+# Make executable
 chmod +x swupdate-client-darwin-arm64
-mv swupdate-client-darwin-arm64 /usr/local/bin/swupdate-client
+
+# Install
+sudo mv swupdate-client-darwin-arm64 /usr/local/bin/swupdate-client
+```
+
+#### Windows (64-bit)
+```powershell
+# PowerShell - Download
+Invoke-WebRequest -Uri "https://github.com/DatanoiseTV/swupdate-cli/releases/latest/download/swupdate-client-windows-x86_64.exe" -OutFile "swupdate-client.exe"
+
+# Verify checksum (PowerShell)
+Invoke-WebRequest -Uri "https://github.com/DatanoiseTV/swupdate-cli/releases/latest/download/checksums.sha256" -OutFile "checksums.sha256"
+(Get-FileHash swupdate-client.exe -Algorithm SHA256).Hash
+
+# Add to PATH or move to a directory in PATH
+# Example: C:\Program Files\swupdate-client\
+New-Item -ItemType Directory -Force -Path "C:\Program Files\swupdate-client"
+Move-Item swupdate-client.exe "C:\Program Files\swupdate-client\"
+# Add "C:\Program Files\swupdate-client" to system PATH
+```
+
+#### Windows (32-bit)
+```powershell
+# PowerShell
+Invoke-WebRequest -Uri "https://github.com/DatanoiseTV/swupdate-cli/releases/latest/download/swupdate-client-windows-386.exe" -OutFile "swupdate-client.exe"
+```
+
+#### FreeBSD / OpenBSD / NetBSD
+```bash
+# Build from source is recommended for BSD systems
+git clone https://github.com/DatanoiseTV/swupdate-cli.git
+cd swupdate-cli
+go build -o swupdate-client swupdate-client.go
+sudo install -m 755 swupdate-client /usr/local/bin/
+```
+
+#### Docker
+```bash
+# Run directly from Docker (example)
+docker run --rm -v $(pwd):/firmware \
+  ghcr.io/datanoisetv/swupdate-client:latest \
+  -ip 192.168.1.100 -file /firmware/update.swu
+```
+
+#### Embedded Linux (Yocto/Buildroot)
+For embedded systems, download the appropriate architecture:
+- ARMv6: `swupdate-client-linux-armv6`
+- ARMv7: `swupdate-client-linux-armv7`
+- ARM64: `swupdate-client-linux-arm64`
+- x86_64: `swupdate-client-linux-x86_64`
+
+```bash
+# Example for ARMv7 embedded device
+wget -O /usr/bin/swupdate-client https://github.com/DatanoiseTV/swupdate-cli/releases/latest/download/swupdate-client-linux-armv7
+chmod +x /usr/bin/swupdate-client
 ```
 
 ## Usage
