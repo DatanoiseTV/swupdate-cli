@@ -189,7 +189,7 @@ jobs:
           coverage.txt
         generate_release_notes: true
       env:
-        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
 
   lint:
     runs-on: ubuntu-latest
