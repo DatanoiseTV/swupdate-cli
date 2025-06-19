@@ -30,7 +30,31 @@ go build -o swupdate-client swupdate-client.go
 
 ### Binary Release
 
-Download the latest binary from the [releases page](https://github.com/DatanoiseTV/swupdate-cli/releases).
+Download the pre-built static binary for your platform from the [releases page](https://github.com/DatanoiseTV/swupdate-cli/releases).
+
+Each release includes:
+- Static binaries for all platforms (no dependencies required)
+- Checksum files (SHA256, SHA512, MD5) for verification
+- Test coverage report (HTML and text format)
+
+Example:
+```bash
+# Linux x86_64
+wget https://github.com/DatanoiseTV/swupdate-cli/releases/latest/download/swupdate-client-linux-x86_64
+wget https://github.com/DatanoiseTV/swupdate-cli/releases/latest/download/checksums.sha256
+
+# Verify checksum
+sha256sum -c checksums.sha256 --ignore-missing
+
+# Install
+chmod +x swupdate-client-linux-x86_64
+mv swupdate-client-linux-x86_64 /usr/local/bin/swupdate-client
+
+# macOS arm64 (Apple Silicon)
+wget https://github.com/DatanoiseTV/swupdate-cli/releases/latest/download/swupdate-client-darwin-arm64
+chmod +x swupdate-client-darwin-arm64
+mv swupdate-client-darwin-arm64 /usr/local/bin/swupdate-client
+```
 
 ## Usage
 

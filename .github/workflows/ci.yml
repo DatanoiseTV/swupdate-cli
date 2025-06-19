@@ -39,7 +39,10 @@ jobs:
         go mod download
     
     - name: Run tests
-      run: go test -v -race -coverprofile=coverage.out
+      run: |
+        go test -v -race -coverprofile=coverage.out
+        go tool cover -html=coverage.out -o coverage.html
+        go tool cover -func=coverage.out > coverage.txt
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
@@ -47,6 +50,15 @@ jobs:
         file: ./coverage.out
         flags: unittests
         name: codecov-umbrella
+    
+    - name: Upload coverage reports
+      if: matrix.go-version == 'stable'
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-reports
+        path: |
+          coverage.html
+          coverage.txt
 
   build:
     runs-on: ubuntu-latest
@@ -99,21 +111,18 @@ jobs:
         fi
         go build -ldflags="-s -w -extldflags '-static'" -o ${BINARY_NAME} swupdate-client.go
         
-        # Create archive
-        ARCHIVE_NAME=swupdate-client_${GOOS}_${GOARCH}
+        # Rename binary with platform suffix
+        FINAL_NAME=swupdate-client-${GOOS}-${GOARCH}
         if [ "$GOOS" = "windows" ]; then
-          zip ${ARCHIVE_NAME}.zip ${BINARY_NAME}
-        else
-          tar -czf ${ARCHIVE_NAME}.tar.gz ${BINARY_NAME}
+          FINAL_NAME=${FINAL_NAME}.exe
         fi
+        mv ${BINARY_NAME} ${FINAL_NAME}
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: binaries-${{ matrix.goos }}-${{ matrix.goarch }}
-        path: |
-          *.tar.gz
-          *.zip
+        name: binary-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: swupdate-client-*
 
   release:
     runs-on: ubuntu-latest
@@ -128,8 +137,20 @@ jobs:
     - name: Download all artifacts
       uses: actions/download-artifact@v4
       with:
-        pattern: binaries-*
+        pattern: binary-*
         merge-multiple: true
+    
+    - name: Download coverage reports
+      uses: actions/download-artifact@v4
+      with:
+        name: coverage-reports
+        path: .
+    
+    - name: Generate checksums
+      run: |
+        sha256sum swupdate-client-* > checksums.sha256
+        sha512sum swupdate-client-* > checksums.sha512
+        md5sum swupdate-client-* > checksums.md5
     
     - name: Generate release tag
       id: tag
@@ -151,8 +172,10 @@ jobs:
         draft: false
         prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
         files: |
-          *.tar.gz
-          *.zip
+          swupdate-client-*
+          checksums.*
+          coverage.html
+          coverage.txt
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
