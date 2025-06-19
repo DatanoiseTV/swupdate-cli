@@ -3,7 +3,7 @@
 [![CI](https://github.com/DatanoiseTV/swupdate-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/DatanoiseTV/swupdate-cli/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/DatanoiseTV/swupdate-cli/branch/main/graph/badge.svg)](https://codecov.io/gh/DatanoiseTV/swupdate-cli)
 [![Go Report Card](https://goreportcard.com/badge/github.com/DatanoiseTV/swupdate-cli)](https://goreportcard.com/report/github.com/DatanoiseTV/swupdate-cli)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
 
 A command-line client for uploading firmware to devices running [SWUpdate](https://sbabic.github.io/swupdate/). This tool provides a simple interface for firmware updates with real-time progress monitoring via WebSocket connections.
 
@@ -220,7 +220,10 @@ The client handles various error conditions:
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the BSD 3-Clause License with attribution requirement - see the [LICENSE](LICENSE) file for details.
+
+**Important**: Any product that uses this software must include the following acknowledgment visibly in its documentation and any releases:
+"This product includes software developed by DatanoiseTV."
 
 ## Contributing
 

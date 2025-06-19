@@ -23,22 +23,22 @@ import (
 
 // Config holds all configuration parameters for the SWUpdate client
 type Config struct {
-	IPAddress       string        // Target device IP address
-	Port            int           // SWUpdate web server port
-	Filename        string        // Path to firmware file (.swu)
-	Timeout         time.Duration // Network operation timeout
-	Verbose         bool          // Enable detailed logging
-	JSONOutput      bool          // Output structured JSON instead of human-readable text
-	TLS             bool          // Use HTTPS/WSS instead of HTTP/WS
-	InsecureTLS     bool          // Skip TLS certificate verification
-	CertFile        string        // Path to custom CA certificate file
-	ClientCertFile  string        // Path to client certificate file
-	ClientKeyFile   string        // Path to client private key file
+	IPAddress      string        // Target device IP address
+	Port           int           // SWUpdate web server port
+	Filename       string        // Path to firmware file (.swu)
+	Timeout        time.Duration // Network operation timeout
+	Verbose        bool          // Enable detailed logging
+	JSONOutput     bool          // Output structured JSON instead of human-readable text
+	TLS            bool          // Use HTTPS/WSS instead of HTTP/WS
+	InsecureTLS    bool          // Skip TLS certificate verification
+	CertFile       string        // Path to custom CA certificate file
+	ClientCertFile string        // Path to client certificate file
+	ClientKeyFile  string        // Path to client private key file
 }
 
 // SWUpdateEvent represents a WebSocket event from the SWUpdate server
 type SWUpdateEvent struct {
-	Type    string `json:"type"`               // Event type (status, step, message, etc.)
+	Type    string `json:"type"`              // Event type (status, step, message, etc.)
 	Level   string `json:"level,omitempty"`   // Log level (INFO, WARN, ERROR)
 	Text    string `json:"text,omitempty"`    // Human-readable message
 	Number  string `json:"number,omitempty"`  // Step number
@@ -51,16 +51,16 @@ type SWUpdateEvent struct {
 
 // LogMessage represents a structured log entry for JSON output mode
 type LogMessage struct {
-	Type    string    `json:"type"`               // Message category
-	Level   string    `json:"level,omitempty"`   // Log level
-	Message string    `json:"message"`           // Log message content
-	Time    time.Time `json:"time"`              // Timestamp
+	Type    string    `json:"type"`            // Message category
+	Level   string    `json:"level,omitempty"` // Log level
+	Message string    `json:"message"`         // Log message content
+	Time    time.Time `json:"time"`            // Timestamp
 }
 
 // SWUpdateClient manages communication with an SWUpdate-enabled device
 type SWUpdateClient struct {
-	config Config            // Client configuration
-	wsConn *websocket.Conn  // WebSocket connection for progress monitoring
+	config Config          // Client configuration
+	wsConn *websocket.Conn // WebSocket connection for progress monitoring
 }
 
 // NewSWUpdateClient creates a new client instance with the given configuration
@@ -206,55 +206,79 @@ func (c *SWUpdateClient) handleWebSocketEvent(event SWUpdateEvent) {
 
 	switch event.Type {
 	case "status":
-		switch event.Status {
-		case "START":
-			c.logMessage("status", "INFO", "Update started")
-		case "RUN":
-			c.logMessage("status", "INFO", "Update running")
-		case "SUCCESS":
-			c.logMessage("status", "INFO", "Update completed successfully")
-		case "FAILURE":
-			c.logMessage("status", "ERROR", "Update failed")
-		case "DONE":
-			c.logMessage("status", "INFO", "Update process finished")
-		case "IDLE":
-			if c.config.Verbose {
-				c.logMessage("status", "INFO", "System idle")
-			}
-		default:
-			c.logMessage("status", "INFO", fmt.Sprintf("Status: %s", event.Status))
-		}
-
+		c.handleStatusEvent(event)
 	case "step":
-		if event.Percent != "" && event.Name != "" {
-			c.logMessage("progress", "INFO", fmt.Sprintf("Installing %s: %s%%", event.Name, event.Percent))
-		} else if event.Step != "" && event.Number != "" {
-			c.logMessage("progress", "INFO", fmt.Sprintf("Step %s of %s", event.Step, event.Number))
-		}
-
+		c.handleStepEvent(event)
 	case "message":
-		if event.Level == "ERROR" {
-			c.logMessage("message", "ERROR", event.Text)
-		} else if event.Level == "WARN" {
-			c.logMessage("message", "WARN", event.Text)
-		} else if c.config.Verbose && event.Text != "" {
+		c.handleMessageEvent(event)
+	case "info":
+		c.handleInfoEvent(event)
+	case "source":
+		c.handleSourceEvent(event)
+	default:
+		c.handleUnknownEvent(event)
+	}
+}
+
+func (c *SWUpdateClient) handleStatusEvent(event SWUpdateEvent) {
+	statusMessages := map[string]struct {
+		level   string
+		message string
+	}{
+		"START":   {"INFO", "Update started"},
+		"RUN":     {"INFO", "Update running"},
+		"SUCCESS": {"INFO", "Update completed successfully"},
+		"FAILURE": {"ERROR", "Update failed"},
+		"DONE":    {"INFO", "Update process finished"},
+		"IDLE":    {"INFO", "System idle"},
+	}
+
+	if msg, ok := statusMessages[event.Status]; ok {
+		if event.Status == "IDLE" && !c.config.Verbose {
+			return
+		}
+		c.logMessage("status", msg.level, msg.message)
+	} else {
+		c.logMessage("status", "INFO", fmt.Sprintf("Status: %s", event.Status))
+	}
+}
+
+func (c *SWUpdateClient) handleStepEvent(event SWUpdateEvent) {
+	if event.Percent != "" && event.Name != "" {
+		c.logMessage("progress", "INFO", fmt.Sprintf("Installing %s: %s%%", event.Name, event.Percent))
+	} else if event.Step != "" && event.Number != "" {
+		c.logMessage("progress", "INFO", fmt.Sprintf("Step %s of %s", event.Step, event.Number))
+	}
+}
+
+func (c *SWUpdateClient) handleMessageEvent(event SWUpdateEvent) {
+	switch event.Level {
+	case "ERROR":
+		c.logMessage("message", "ERROR", event.Text)
+	case "WARN":
+		c.logMessage("message", "WARN", event.Text)
+	default:
+		if c.config.Verbose && event.Text != "" {
 			c.logMessage("message", "INFO", event.Text)
 		}
+	}
+}
 
-	case "info":
-		if c.config.Verbose && event.Text != "" {
-			c.logMessage("info", "INFO", event.Text)
-		}
+func (c *SWUpdateClient) handleInfoEvent(event SWUpdateEvent) {
+	if c.config.Verbose && event.Text != "" {
+		c.logMessage("info", "INFO", event.Text)
+	}
+}
 
-	case "source":
-		if c.config.Verbose {
-			c.logMessage("source", "INFO", fmt.Sprintf("Update source: %s", event.Source))
-		}
+func (c *SWUpdateClient) handleSourceEvent(event SWUpdateEvent) {
+	if c.config.Verbose {
+		c.logMessage("source", "INFO", fmt.Sprintf("Update source: %s", event.Source))
+	}
+}
 
-	default:
-		if c.config.Verbose {
-			c.logMessage("unknown", "INFO", fmt.Sprintf("Unknown event type: %s", event.Type))
-		}
+func (c *SWUpdateClient) handleUnknownEvent(event SWUpdateEvent) {
+	if c.config.Verbose {
+		c.logMessage("unknown", "INFO", fmt.Sprintf("Unknown event type: %s", event.Type))
 	}
 }
 
@@ -271,8 +295,8 @@ func (c *SWUpdateClient) uploadFirmware(ctx context.Context) error {
 		return fmt.Errorf("failed to get file stats: %w", err)
 	}
 
-	c.logMessage("upload", "INFO", fmt.Sprintf("Uploading firmware: %s (%.2f MB)", 
-		filepath.Base(c.config.Filename), 
+	c.logMessage("upload", "INFO", fmt.Sprintf("Uploading firmware: %s (%.2f MB)",
+		filepath.Base(c.config.Filename),
 		float64(stat.Size())/(1024*1024)))
 
 	var requestBody bytes.Buffer
@@ -295,7 +319,7 @@ func (c *SWUpdateClient) uploadFirmware(ctx context.Context) error {
 		scheme = "https"
 	}
 	uploadURL := fmt.Sprintf("%s://%s:%d/upload", scheme, c.config.IPAddress, c.config.Port)
-	
+
 	req, err := http.NewRequestWithContext(ctx, "POST", uploadURL, &requestBody)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
@@ -343,7 +367,7 @@ func (c *SWUpdateClient) restartDevice(ctx context.Context) error {
 		scheme = "https"
 	}
 	restartURL := fmt.Sprintf("%s://%s:%d/restart", scheme, c.config.IPAddress, c.config.Port)
-	
+
 	req, err := http.NewRequestWithContext(ctx, "POST", restartURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create restart request: %w", err)

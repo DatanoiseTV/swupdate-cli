@@ -192,16 +192,16 @@ func TestUploadFirmware_Success(t *testing.T) {
 		t.Fatalf("Could not open test file: %v", err)
 	}
 	defer file.Close()
-	
+
 	stat, err := file.Stat()
 	if err != nil {
 		t.Fatalf("Could not stat test file: %v", err)
 	}
-	
+
 	if stat.Size() == 0 {
 		t.Error("Test file should not be empty")
 	}
-	
+
 	// Test that we can create a client with the file
 	config := Config{
 		Filename: tmpFile.Name(),
@@ -364,13 +364,13 @@ func TestConfigValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client := NewSWUpdateClient(tt.config)
-			
+
 			// Basic validation checks
 			if client == nil {
 				t.Error("NewSWUpdateClient should never return nil")
 				return
 			}
-			
+
 			if tt.valid {
 				if client.config.IPAddress != tt.config.IPAddress {
 					t.Errorf("IP mismatch: expected %s, got %s", tt.config.IPAddress, client.config.IPAddress)
@@ -481,7 +481,7 @@ func TestTLSConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client := NewSWUpdateClient(tt.config)
-			
+
 			if !tt.config.TLS {
 				// Skip TLS config test for non-TLS configurations
 				return
@@ -521,13 +521,13 @@ func TestSchemeSelection(t *testing.T) {
 				Port:      8080,
 				TLS:       tt.tls,
 			}
-			
+
 			// Test scheme in URL construction
 			scheme := "http"
 			if config.TLS {
 				scheme = "https"
 			}
-			
+
 			if scheme != tt.expectedScheme {
 				t.Errorf("Expected scheme %s, got %s", tt.expectedScheme, scheme)
 			}
