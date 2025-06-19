@@ -146,7 +146,11 @@ func (c *SWUpdateClient) listenWebSocket(ctx context.Context) {
 		return
 	}
 
-	defer wsConn.Close()
+	defer func() {
+		if wsConn != nil {
+			wsConn.Close()
+		}
+	}()
 
 	for {
 		select {
